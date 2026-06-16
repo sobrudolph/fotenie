@@ -4,356 +4,275 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Skener produktov</title>
 <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
 <script src="https://unpkg.com/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
   :root{
-    --bg:#0e1116;
-    --surface:#171c24;
-    --surface-2:#1f2630;
-    --line:#2b333f;
-    --text:#eef2f7;
-    --muted:#8b96a5;
-    --accent:#3ddc97;
-    --accent-press:#2bbd7e;
-    --danger:#ff5a5a;
-    --warn:#ffb020;
-    --radius:14px;
-    --safe-top:env(safe-area-inset-top,0px);
-    --safe-bottom:env(safe-area-inset-bottom,0px);
+    --bg:#0e1116; --surface:#171c24; --surface-2:#1f2630; --line:#2b333f;
+    --text:#eef2f7; --muted:#8b96a5; --accent:#3ddc97; --accent-press:#2bbd7e;
+    --danger:#ff5a5a; --warn:#ffb020; --radius:14px;
+    --safe-top:env(safe-area-inset-top,0px); --safe-bottom:env(safe-area-inset-bottom,0px);
+    --safe-left:env(safe-area-inset-left,0px); --safe-right:env(safe-area-inset-right,0px);
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-  html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--text);
+  html,body{margin:0;padding:0;height:100%;background:#000;color:var(--text);
     font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;
     overscroll-behavior:none;}
-  body{height:100dvh;overflow:hidden;position:relative;background:#000;}
+  body{height:100dvh;overflow:hidden;position:relative;}
 
-  /* ===== Fullscreen scéna s kamerou ===== */
+  /* ===== Fullscreen kamera ===== */
   .stage{position:fixed;inset:0;overflow:hidden;background:#000;}
   video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;}
 
-  /* Skenovací rám (na šírku) */
-  .scan-frame{position:absolute;top:30%;bottom:18%;left:24%;right:24%;
-    border:2px solid rgba(61,220,151,.9);border-radius:12px;
-    box-shadow:0 0 0 9999px rgba(0,0,0,.30);pointer-events:none;}
-  .scan-line{position:absolute;left:24%;right:24%;height:2px;background:var(--accent);
-    box-shadow:0 0 8px var(--accent);animation:scan 2s ease-in-out infinite;pointer-events:none;}
-  @keyframes scan{0%,100%{top:32%}50%{top:78%}}
-  @media (prefers-reduced-motion:reduce){.scan-line{animation:none;top:55%}}
-  /* vo fáze fotenia rám aj čiaru skry */
-  body.shooting .scan-frame,body.shooting .scan-line{display:none;}
+  /* Vodiaci rám — sem mieriš ČÍSLO pod kódom */
+  .guide{position:absolute;border:2px solid var(--accent);border-radius:10px;
+    box-shadow:0 0 0 9999px rgba(0,0,0,.32);pointer-events:none;}
+  .guide-label{position:absolute;left:50%;transform:translateX(-50%);
+    background:rgba(0,0,0,.6);backdrop-filter:blur(8px);padding:6px 12px;border-radius:8px;
+    font-size:12.5px;font-weight:600;white-space:nowrap;pointer-events:none;text-align:center;}
 
   /* Horný pruh */
   .topbar{position:absolute;top:0;left:0;right:0;z-index:10;
-    padding:calc(var(--safe-top) + 10px) 14px 10px;
+    padding:calc(var(--safe-top) + 8px) calc(var(--safe-right) + 12px) 8px calc(var(--safe-left) + 12px);
     display:flex;align-items:center;justify-content:space-between;gap:10px;
-    background:linear-gradient(to bottom,rgba(0,0,0,.55),rgba(0,0,0,0));pointer-events:none;}
+    background:linear-gradient(to bottom,rgba(0,0,0,.5),rgba(0,0,0,0));pointer-events:none;}
   .topbar > *{pointer-events:auto;}
+  .badge{background:rgba(0,0,0,.55);backdrop-filter:blur(8px);padding:7px 12px;border-radius:9px;
+    font-size:13px;font-weight:600;max-width:55vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .topbar-right{display:flex;align-items:center;gap:8px;}
-  .cam-badge{background:rgba(0,0,0,.55);backdrop-filter:blur(8px);
-    padding:7px 12px;border-radius:9px;font-size:13px;font-weight:600;max-width:60vw;
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .cam-count{background:rgba(0,0,0,.55);backdrop-filter:blur(8px);min-width:30px;text-align:center;
-    padding:7px 10px;border-radius:9px;font-size:13px;font-weight:700;color:var(--accent);}
+  .ver{font-size:11px;color:var(--accent);font-weight:700;opacity:.85;align-self:center;}
+  .count{background:rgba(0,0,0,.55);backdrop-filter:blur(8px);min-width:28px;text-align:center;
+    padding:7px 9px;border-radius:9px;font-size:13px;font-weight:700;color:var(--accent);}
   .icon-btn{width:42px;height:42px;border-radius:11px;border:1px solid rgba(255,255,255,.18);
     background:rgba(0,0,0,.5);backdrop-filter:blur(8px);display:flex;align-items:center;
     justify-content:center;cursor:pointer;flex-shrink:0;}
   .icon-btn svg{width:22px;height:22px;stroke:var(--text);}
 
-  /* Plávajúci ovládací panel vpravo */
-  .overlay-panel{position:absolute;top:calc(var(--safe-top) + 60px);right:14px;z-index:9;
-    width:300px;max-width:46vw;max-height:calc(100dvh - var(--safe-top) - 80px);
-    overflow-y:auto;-webkit-overflow-scrolling:touch;
-    display:flex;flex-direction:column;gap:10px;
-    transition:transform .25s ease,opacity .25s ease;}
-  body.panel-hidden .overlay-panel{transform:translateX(120%);opacity:0;pointer-events:none;}
-  .op-card{background:rgba(20,25,32,.82);backdrop-filter:blur(12px);
+  /* Menu značka/typ + názov — LEN NA VÝŠKU */
+  .portrait-panel{position:absolute;top:calc(var(--safe-top) + 58px);left:12px;right:12px;z-index:9;
+    background:rgba(20,25,32,.85);backdrop-filter:blur(12px);
     border:1px solid rgba(255,255,255,.12);border-radius:var(--radius);padding:12px;}
-  .op-status{display:flex;align-items:center;gap:8px;font-size:12.5px;color:#cdd5df;
-    background:rgba(20,25,32,.82);backdrop-filter:blur(12px);
-    border:1px solid rgba(255,255,255,.12);border-radius:11px;padding:9px 12px;}
-
-  /* Spúšť (veľké okrúhle tlačidlo dole v strede) */
-  .shutter{position:absolute;left:50%;bottom:calc(var(--safe-bottom) + 22px);transform:translateX(-50%);
-    z-index:11;width:74px;height:74px;border-radius:50%;border:4px solid rgba(255,255,255,.9);
-    background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
-  .shutter span{width:56px;height:56px;border-radius:50%;background:var(--accent);transition:transform .1s;}
-  .shutter:active span{transform:scale(.88);}
-
-  /* State pill (zdieľané farby bodky) */
-  .dot{width:9px;height:9px;border-radius:50%;background:var(--muted);flex-shrink:0;}
-  .dot.live{background:var(--accent);box-shadow:0 0 8px var(--accent);}
-  .dot.busy{background:var(--warn);}
-  .dot.err{background:var(--danger);}
-
-  /* Buttons */
-  .btn{width:100%;border:none;border-radius:12px;padding:13px;font-size:15px;font-weight:600;
-    cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;}
-  .btn:active{transform:scale(.98);}
-  .btn-primary{background:var(--accent);color:#05140d;}
-  .btn-primary:active{background:var(--accent-press);}
-  .btn-secondary{background:var(--surface-2);color:var(--text);border:1px solid var(--line);}
-  .btn-ghost{background:rgba(255,255,255,.06);color:var(--text);border:1px solid var(--line);}
-  .btn[disabled]{opacity:.4;pointer-events:none;}
-  .btn-row{display:flex;gap:8px;margin-top:8px;}
-  .btn-row .btn{margin:0;}
-  select,input[type=text],input[type=password],input[type=number]{
-    width:100%;background:var(--surface-2);color:var(--text);border:1px solid var(--line);
-    border-radius:9px;padding:11px 10px;font-size:15px;appearance:none;-webkit-appearance:none;}
-  select{background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' stroke='%238b96a5' stroke-width='2' fill='none' stroke-linecap='round'/></svg>");
-    background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;}
-  .seg span{display:block;font-size:11px;color:var(--muted);margin-bottom:5px;}
-  .fname-label{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);
-    margin-bottom:8px;}
+  .fname-label{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:6px;}
   .fname-preview{font-family:"SF Mono",ui-monospace,Menlo,monospace;font-size:12px;
     background:rgba(0,0,0,.4);border:1px solid var(--line);border-radius:8px;padding:9px;
     color:var(--accent);word-break:break-all;line-height:1.5;}
   .seg-row{display:flex;gap:8px;margin-top:10px;}
   .seg{flex:1;min-width:0;}
+  .seg span{display:block;font-size:11px;color:var(--muted);margin-bottom:5px;}
+  select,input[type=text],input[type=password]{
+    width:100%;background:var(--surface-2);color:var(--text);border:1px solid var(--line);
+    border-radius:9px;padding:11px 10px;font-size:15px;appearance:none;-webkit-appearance:none;}
+  select{background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' stroke='%238b96a5' stroke-width='2' fill='none' stroke-linecap='round'/></svg>");
+    background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;}
 
-  .thumbs{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
-  .thumb{position:relative;width:64px;height:80px;border-radius:8px;overflow:hidden;border:1px solid var(--line);}
-  .thumb img{width:100%;height:100%;object-fit:cover;}
-  .thumb .up{position:absolute;bottom:2px;right:2px;width:16px;height:16px;border-radius:50%;
-    background:var(--accent);display:flex;align-items:center;justify-content:center;}
-  .thumb .up svg{width:10px;height:10px;stroke:#05140d;stroke-width:3;}
-  .thumb .pend{position:absolute;bottom:2px;right:2px;width:16px;height:16px;border-radius:50%;
-    background:var(--warn);}
+  /* Spúšť (malý krúžok) */
+  .shutter{position:absolute;left:50%;bottom:calc(var(--safe-bottom) + 16px);transform:translateX(-50%);
+    z-index:11;width:64px;height:64px;border-radius:50%;border:4px solid rgba(255,255,255,.92);
+    background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
+  .shutter span{width:46px;height:46px;border-radius:50%;background:var(--accent);transition:transform .1s;}
+  .shutter:active span{transform:scale(.85);}
+  .shutter.busy span{background:var(--warn);}
 
-  /* Settings panel */
-  .panel{position:fixed;inset:0;background:var(--bg);z-index:50;transform:translateX(100%);
+  /* Spodný riadok tlačidiel (vo fáze fotenia) */
+  .bottom-row{position:absolute;bottom:calc(var(--safe-bottom) + 22px);z-index:11;
+    display:flex;align-items:center;gap:14px;}
+  .bottom-left{left:calc(var(--safe-left) + 16px);}
+  .bottom-right{right:calc(var(--safe-right) + 16px);}
+  .mini-btn{background:rgba(0,0,0,.55);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.18);
+    color:var(--text);padding:11px 16px;border-radius:11px;font-size:14px;font-weight:600;cursor:pointer;}
+  .mini-btn.go{background:var(--accent);color:#05140d;border:none;}
+
+  /* Stav */
+  .status{position:absolute;left:50%;bottom:calc(var(--safe-bottom) + 92px);transform:translateX(-50%);
+    z-index:9;display:flex;align-items:center;gap:8px;font-size:12.5px;color:#cdd5df;
+    background:rgba(0,0,0,.55);backdrop-filter:blur(8px);padding:8px 14px;border-radius:10px;
+    max-width:90vw;text-align:center;}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--muted);flex-shrink:0;}
+  .dot.live{background:var(--accent);box-shadow:0 0 8px var(--accent);}
+  .dot.busy{background:var(--warn);} .dot.err{background:var(--danger);}
+
+  /* Veľký kód po prečítaní (krátko bliknutie) */
+  .bigcode{position:absolute;inset:0;z-index:20;display:none;align-items:center;justify-content:center;
+    background:rgba(0,0,0,.55);backdrop-filter:blur(4px);pointer-events:none;}
+  .bigcode.show{display:flex;animation:flash .15s ease;}
+  .bigcode div{background:var(--accent);color:#05140d;font-family:ui-monospace,monospace;font-weight:700;
+    font-size:34px;padding:16px 28px;border-radius:14px;letter-spacing:1px;}
+  @keyframes flash{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
+
+  /* Výzva otoč na šírku — LEN NA VÝŠKU, malá lišta dole, neblokuje */
+  .rotate-tip{position:absolute;left:12px;right:12px;bottom:calc(var(--safe-bottom) + 16px);z-index:8;
+    background:rgba(20,25,32,.9);border:1px solid rgba(255,255,255,.12);border-radius:12px;
+    padding:12px 14px;font-size:13px;color:var(--text);display:flex;align-items:center;gap:10px;}
+  .rotate-tip svg{width:26px;height:26px;stroke:var(--accent);flex-shrink:0;}
+
+  /* Nastavenia */
+  .panel{position:fixed;inset:0;background:var(--bg);z-index:60;transform:translateX(100%);
     transition:transform .25s ease;display:flex;flex-direction:column;}
   .panel.open{transform:translateX(0);}
-  .panel header h1{font-size:16px;}
+  .panel header{padding:calc(var(--safe-top) + 12px) 16px 12px;display:flex;align-items:center;
+    justify-content:space-between;border-bottom:1px solid var(--line);background:var(--surface);}
+  .panel header h1{font-size:16px;font-weight:600;margin:0;}
   .back{width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--surface-2);
     display:flex;align-items:center;justify-content:center;cursor:pointer;}
   .back svg{width:22px;height:22px;stroke:var(--text);}
   .set-body{flex:1;overflow-y:auto;padding:16px;}
-  .group{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
-    padding:14px;margin-bottom:14px;}
-  .group h2{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);
-    margin:0 0 12px;font-weight:600;}
-  .field{margin-bottom:14px;}
-  .field:last-child{margin-bottom:0;}
-  .field label{display:block;font-size:13.5px;margin-bottom:6px;color:var(--text);}
+  .group{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:14px;}
+  .group h2{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin:0 0 12px;font-weight:600;}
+  .field{margin-bottom:14px;} .field:last-child{margin-bottom:0;}
+  .field label{display:block;font-size:13.5px;margin-bottom:6px;}
   .field .hint{font-size:11.5px;color:var(--muted);margin-top:5px;line-height:1.4;}
   .range-row{display:flex;align-items:center;gap:10px;}
   input[type=range]{flex:1;accent-color:var(--accent);}
-  .range-val{font-size:13px;color:var(--accent);min-width:46px;text-align:right;
-    font-family:ui-monospace,monospace;}
-  .wm-preview{width:90px;height:90px;border:1px dashed var(--line);border-radius:10px;
-    display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--bg);}
-  .wm-preview img{max-width:100%;max-height:100%;}
-  .wm-preview span{font-size:11px;color:var(--muted);text-align:center;padding:6px;}
-  .toast{position:fixed;left:50%;bottom:calc(var(--safe-bottom) + 24px);transform:translateX(-50%);
-    background:var(--surface-2);border:1px solid var(--line);color:var(--text);padding:12px 18px;
-    border-radius:12px;font-size:14px;z-index:100;opacity:0;transition:opacity .2s;pointer-events:none;
-    max-width:90%;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.4);}
-  .toast.show{opacity:1;}
-  .seg-control{display:flex;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;
-    overflow:hidden;}
-  .seg-control button{flex:1;padding:10px;background:transparent;border:none;color:var(--muted);
-    font-size:13px;cursor:pointer;font-weight:600;}
+  .range-val{font-size:13px;color:var(--accent);min-width:48px;text-align:right;font-family:ui-monospace,monospace;}
+  .btn{width:100%;border:none;border-radius:12px;padding:13px;font-size:15px;font-weight:600;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;gap:8px;}
+  .btn:active{transform:scale(.98);}
+  .btn-secondary{background:var(--surface-2);color:var(--text);border:1px solid var(--line);}
+  .btn-ghost{background:rgba(255,255,255,.06);color:var(--text);border:1px solid var(--line);}
+  .wm-preview{width:84px;height:84px;border:1px dashed var(--line);border-radius:10px;display:flex;
+    align-items:center;justify-content:center;overflow:hidden;background:var(--bg);}
+  .wm-preview img{max-width:100%;max-height:100%;} .wm-preview span{font-size:11px;color:var(--muted);text-align:center;padding:6px;}
+  .seg-control{display:flex;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;overflow:hidden;}
+  .seg-control button{flex:1;padding:10px;background:transparent;border:none;color:var(--muted);font-size:13px;cursor:pointer;font-weight:600;}
   .seg-control button.active{background:var(--accent);color:#05140d;}
+  .toast{position:fixed;left:50%;bottom:calc(var(--safe-bottom) + 100px);transform:translateX(-50%);
+    background:var(--surface-2);border:1px solid var(--line);color:var(--text);padding:11px 18px;border-radius:12px;
+    font-size:14px;z-index:100;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90%;text-align:center;}
+  .toast.show{opacity:1;}
+  .thumbs{display:none;}
   canvas{display:none;}
 
-  /* ===== Vrstva na výber čísla ===== */
-  .capture-layer{position:fixed;inset:0;z-index:40;background:#000;display:none;
-    touch-action:none;user-select:none;-webkit-user-select:none;}
-  .capture-layer.open{display:block;}
-  #freezeCanvas{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block;}
-  .sel-box{position:absolute;border:2px solid var(--accent);background:rgba(61,220,151,.15);
-    box-shadow:0 0 0 9999px rgba(0,0,0,.45);display:none;pointer-events:none;border-radius:4px;}
-  .sel-box.show{display:block;}
-  .capture-hint{position:absolute;top:calc(var(--safe-top) + 14px);left:50%;transform:translateX(-50%);
-    background:rgba(0,0,0,.7);backdrop-filter:blur(8px);padding:10px 16px;border-radius:10px;
-    font-size:13px;font-weight:600;text-align:center;max-width:90vw;z-index:2;}
-  .capture-actions{position:absolute;bottom:calc(var(--safe-bottom) + 18px);left:50%;
-    transform:translateX(-50%);display:flex;gap:10px;z-index:2;width:min(90vw,420px);}
-  .capture-actions .btn{flex:1;margin:0;}
+  /* ===== Orientácia: čo sa kde ukáže ===== */
+  /* Na VÝŠKU: ukáž menu + výzvu otoč. Na ŠÍRKU: skry ich. */
+  @media (orientation:landscape){
+    .portrait-panel{display:none;}
+    .rotate-tip{display:none;}
+  }
+  @media (orientation:portrait){
+    .portrait-panel{display:block;}
+  }
+  body.shooting .rotate-tip{display:none;}
 </style>
 </head>
 <body>
 
-<!-- ===== HLAVNÁ OBRAZOVKA: FOTENIE (fullscreen kamera) ===== -->
 <div class="stage">
   <video id="video" playsinline muted autoplay></video>
 
-  <!-- skenovací rám -->
-  <div class="scan-frame" id="scanFrame"></div>
-  <div class="scan-line" id="scanLine"></div>
+  <!-- vodiaci rám na číslo -->
+  <div class="guide" id="guide"></div>
+  <div class="guide-label" id="guideLabel">Číslo pod kódom sem</div>
 
-  <!-- horný pruh: stav vľavo, ozubené koliesko + skry/zobraz vpravo -->
+  <!-- horný pruh -->
   <div class="topbar">
-    <div class="cam-badge" id="camBadge">Skenujem kód…</div>
+    <div class="badge" id="badge">Pripravený</div>
     <div class="topbar-right">
-      <div class="cam-count" id="camCount" style="display:none">0</div>
-      <div style="font-size:10px;color:var(--accent);align-self:center;font-weight:700;opacity:.8">v2</div>
-      <div class="icon-btn" id="togglePanel" aria-label="Skryť ovládanie">
-        <svg id="toggleIcon" viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
-      </div>
+      <div class="count" id="count" style="display:none">0</div>
+      <div class="ver">v3</div>
       <div class="icon-btn" id="openSettings" aria-label="Nastavenia">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
       </div>
     </div>
   </div>
 
-  <!-- plávajúci ovládací panel vpravo -->
-  <div class="overlay-panel" id="overlayPanel">
-    <div class="op-card">
-      <div class="fname-label">Názov súboru</div>
-      <div class="fname-preview" id="fnamePreview">www-videohry-tv-…</div>
-      <div class="seg-row">
-        <div class="seg">
-          <span>Značka</span>
-          <select id="brand">
-            <option value="sony-playstation">sony-playstation</option>
-            <option value="nintendo">nintendo</option>
-            <option value="microsoft-xbox">microsoft-xbox</option>
-          </select>
-        </div>
-        <div class="seg">
-          <span>Typ</span>
-          <select id="type">
-            <option value="konzoly">konzoly</option>
-            <option value="hry">hry</option>
-            <option value="prislusenstvo">prislusenstvo</option>
-          </select>
-        </div>
+  <!-- menu LEN na výšku -->
+  <div class="portrait-panel" id="portraitPanel">
+    <div class="fname-label">Názov súboru</div>
+    <div class="fname-preview" id="fnamePreview">www-videohry-tv-…</div>
+    <div class="seg-row">
+      <div class="seg"><span>Značka</span>
+        <select id="brand">
+          <option value="sony-playstation">sony-playstation</option>
+          <option value="nintendo">nintendo</option>
+          <option value="microsoft-xbox">microsoft-xbox</option>
+        </select>
       </div>
-    </div>
-
-    <div class="op-status">
-      <div class="dot" id="statusDot"></div>
-      <span id="statusText">Spúšťam kameru…</span>
-    </div>
-
-    <!-- Fáza skenovania -->
-    <div id="scanPhase">
-      <button class="btn btn-primary" id="ocrBtn">Odfotiť kód</button>
-      <div style="font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.4">
-        Stlač „Odfotiť kód“, obraz zamrzne a prstom označíš číslo (napr. HD15074). Potom ho potvrdíš. Ak sa čiarový kód naskenuje sám, použije sa rovno.
-      </div>
-      <button class="btn btn-ghost" id="manualCode" style="margin-top:8px">Zadať kód ručne</button>
-    </div>
-
-    <!-- Fáza fotenia -->
-    <div id="photoPhase" style="display:none">
-      <div class="thumbs" id="thumbs"></div>
-      <div class="btn-row">
-        <button class="btn btn-ghost" id="cancelProduct">Zrušiť</button>
-        <button class="btn btn-secondary" id="doneBtn">Hotovo → ďalší</button>
+      <div class="seg"><span>Typ</span>
+        <select id="type">
+          <option value="konzoly">konzoly</option>
+          <option value="hry">hry</option>
+          <option value="prislusenstvo">prislusenstvo</option>
+        </select>
       </div>
     </div>
   </div>
 
-  <!-- veľká spúšť dole v strede (len vo fáze fotenia) -->
-  <button class="shutter" id="shootBtn" style="display:none" aria-label="Odfotiť"><span></span></button>
-</div>
+  <!-- stav -->
+  <div class="status"><div class="dot" id="dot"></div><span id="statusText">Spúšťam kameru…</span></div>
 
-<!-- ===== VRSTVA NA VÝBER ČÍSLA (zamrznutý obraz + ťahanie obdĺžnika) ===== -->
-<div class="capture-layer" id="captureLayer">
-  <canvas id="freezeCanvas"></canvas>
-  <div class="sel-box" id="selBox"></div>
-  <div class="capture-hint" id="captureHint">Prstom ťahaj obdĺžnik presne okolo čísla (napr. HD15074)</div>
-  <div class="capture-actions">
-    <button class="btn btn-ghost" id="captureCancel">Zrušiť</button>
-    <button class="btn btn-primary" id="captureRead" disabled>Prečítať označené</button>
+  <!-- výzva otoč na šírku (len na výšku) -->
+  <div class="rotate-tip" id="rotateTip">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M2 12h4M18 12h4"/></svg>
+    <span>Otoč telefón na šírku — fotky aj skenovanie sú na šírku.</span>
   </div>
+
+  <!-- malá spúšť (fáza skenovania) -->
+  <button class="shutter" id="scanShutter" aria-label="Odfotiť kód"><span></span></button>
+
+  <!-- fáza fotenia produktu: spúšť + bočné tlačidlá -->
+  <button class="shutter" id="photoShutter" style="display:none" aria-label="Odfotiť produkt"><span></span></button>
+  <div class="bottom-row bottom-left" id="leftActions" style="display:none">
+    <button class="mini-btn" id="cancelProduct">Zrušiť</button>
+  </div>
+  <div class="bottom-row bottom-right" id="rightActions" style="display:none">
+    <button class="mini-btn go" id="doneBtn">Hotovo</button>
+  </div>
+
+  <!-- bliknutie veľkého kódu -->
+  <div class="bigcode" id="bigcode"><div id="bigcodeText"></div></div>
 </div>
 
 <!-- ===== NASTAVENIA ===== -->
 <div class="panel" id="settingsPanel">
   <header>
-    <div class="back" id="closeSettings" aria-label="Späť">
-      <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
-    </div>
-    <h1>Nastavenia</h1>
-    <div style="width:40px"></div>
+    <div class="back" id="closeSettings"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></div>
+    <h1>Nastavenia</h1><div style="width:40px"></div>
   </header>
   <div class="set-body">
-
     <div class="group">
       <h2>Dropbox</h2>
       <div class="field">
         <label for="dbxToken">Prístupový token</label>
         <input type="password" id="dbxToken" placeholder="Vlož svoj Dropbox token" autocomplete="off">
-        <div class="hint">Token sa ukladá len v tomto telefóne. Nikam inam sa neposiela. Návod na vytvorenie nájdeš v správe od Claude.</div>
+        <div class="hint">Token sa ukladá len v tomto telefóne.</div>
       </div>
-      <div class="field">
-        <button class="btn btn-secondary" id="testDbx">Otestovať pripojenie</button>
-      </div>
+      <div class="field"><button class="btn btn-secondary" id="testDbx">Otestovať pripojenie</button></div>
     </div>
-
     <div class="group">
       <h2>Watermark (logo)</h2>
-      <div class="field">
-        <div style="display:flex;gap:14px;align-items:flex-start">
-          <div class="wm-preview" id="wmPreview"><span>žiadny<br>obrázok</span></div>
-          <div style="flex:1">
-            <label for="wmFile">Obrázok loga (PNG s priehľadnosťou ideálny)</label>
-            <input type="file" id="wmFile" accept="image/*">
-            <button class="btn btn-ghost" id="wmClear" style="margin-top:8px;padding:8px">Odstrániť logo</button>
-          </div>
+      <div class="field"><div style="display:flex;gap:14px;align-items:flex-start">
+        <div class="wm-preview" id="wmPreview"><span>žiadny<br>obrázok</span></div>
+        <div style="flex:1">
+          <label for="wmFile">Obrázok loga</label>
+          <input type="file" id="wmFile" accept="image/*">
+          <button class="btn btn-ghost" id="wmClear" style="margin-top:8px;padding:8px">Odstrániť logo</button>
         </div>
+      </div></div>
+      <div class="field"><label>Pozícia</label>
+        <select id="wmPos"><option value="br">Vpravo dole</option><option value="bl">Vľavo dole</option><option value="tr">Vpravo hore</option><option value="tl">Vľavo hore</option><option value="center">Stred</option></select>
       </div>
-      <div class="field">
-        <label>Pozícia</label>
-        <select id="wmPos">
-          <option value="br">Vpravo dole</option>
-          <option value="bl">Vľavo dole</option>
-          <option value="tr">Vpravo hore</option>
-          <option value="tl">Vľavo hore</option>
-          <option value="center">Stred</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Veľkosť loga</label>
-        <div class="range-row"><input type="range" id="wmSize" min="5" max="60" value="22"><span class="range-val" id="wmSizeVal">22 %</span></div>
-      </div>
-      <div class="field">
-        <label>Priehľadnosť</label>
-        <div class="range-row"><input type="range" id="wmOpacity" min="10" max="100" value="85"><span class="range-val" id="wmOpacityVal">85 %</span></div>
-      </div>
+      <div class="field"><label>Veľkosť loga</label><div class="range-row"><input type="range" id="wmSize" min="5" max="60" value="22"><span class="range-val" id="wmSizeVal">22 %</span></div></div>
+      <div class="field"><label>Priehľadnosť</label><div class="range-row"><input type="range" id="wmOpacity" min="10" max="100" value="85"><span class="range-val" id="wmOpacityVal">85 %</span></div></div>
     </div>
-
     <div class="group">
       <h2>Úprava fotky</h2>
-      <div class="field">
-        <label>Filter (na všetky fotky)</label>
+      <div class="field"><label>Filter</label>
         <div class="seg-control" id="filterCtrl">
-          <button data-f="none" class="active">Originál</button>
-          <button data-f="bw">Č/B</button>
-          <button data-f="contrast">Kontrast</button>
+          <button data-f="none" class="active">Originál</button><button data-f="bw">Č/B</button><button data-f="contrast">Kontrast</button>
         </div>
       </div>
-      <div class="field">
-        <label>Jas</label>
-        <div class="range-row"><input type="range" id="brightness" min="60" max="140" value="100"><span class="range-val" id="brightnessVal">100 %</span></div>
-      </div>
+      <div class="field"><label>Jas</label><div class="range-row"><input type="range" id="brightness" min="60" max="140" value="100"><span class="range-val" id="brightnessVal">100 %</span></div></div>
     </div>
-
     <div class="group">
       <h2>Veľkosť a kvalita</h2>
-      <div class="field">
-        <label>Max. rozmer dlhšej strany</label>
-        <select id="maxDim">
-          <option value="0">Bez zmeny</option>
-          <option value="1200">1200 px</option>
-          <option value="1600" selected>1600 px</option>
-          <option value="2048">2048 px</option>
-          <option value="3000">3000 px</option>
-        </select>
+      <div class="field"><label>Max. rozmer dlhšej strany</label>
+        <select id="maxDim"><option value="0">Bez zmeny</option><option value="1200">1200 px</option><option value="1600" selected>1600 px</option><option value="2048">2048 px</option><option value="3000">3000 px</option></select>
       </div>
-      <div class="field">
-        <label>Kvalita JPEG</label>
-        <div class="range-row"><input type="range" id="quality" min="40" max="100" value="80"><span class="range-val" id="qualityVal">80 %</span></div>
-      </div>
+      <div class="field"><label>Kvalita JPEG</label><div class="range-row"><input type="range" id="quality" min="40" max="100" value="80"><span class="range-val" id="qualityVal">80 %</span></div></div>
     </div>
-
-    <div class="footer-pad"></div>
   </div>
 </div>
 
@@ -362,608 +281,277 @@
 
 <script>
 "use strict";
+const APP_VERSION = "v3";
 
-/* ---------- Stav a nastavenia (uložené lokálne) ---------- */
-const LS_KEY = "skener_settings_v1";
-const defaults = {
-  dbxToken:"", brand:"sony-playstation", type:"hry",
-  wmImage:"", wmPos:"br", wmSize:22, wmOpacity:85,
-  filter:"none", brightness:100, maxDim:1600, quality:80
-};
-let S = loadSettings();
-
-function loadSettings(){
-  try{ return Object.assign({}, defaults, JSON.parse(localStorage.getItem(LS_KEY)||"{}")); }
-  catch(e){ return Object.assign({}, defaults); }
-}
-function saveSettings(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(S)); }catch(e){} }
+/* ---------- Nastavenia ---------- */
+const LS_KEY = "skener_v3";
+const defaults = { dbxToken:"", brand:"sony-playstation", type:"hry",
+  wmImage:"", wmPos:"br", wmSize:22, wmOpacity:85, filter:"none", brightness:100, maxDim:1600, quality:80 };
+let S = (()=>{ try{ return Object.assign({},defaults,JSON.parse(localStorage.getItem(LS_KEY)||"{}")); }catch(e){ return {...defaults}; } })();
+function save(){ try{ localStorage.setItem(LS_KEY,JSON.stringify(S)); }catch(e){} }
 
 const FIXED = "www-videohry-tv";
-let currentCode = null;     // naskenovaný kód aktuálneho produktu
-let shots = [];             // {blob, name, uploaded}
-let phase = "scan";         // "scan" | "photo"
-let scanning = false;
-let codeReader = null;
-let videoStream = null;
-let scanCanvas = null, scanCtx = null, scanTimer = null, scanAttempts = 0;
+const CODE_PREFIXES = ["HD","KD","PD","ND","H","K","P","N"];
+let currentCode=null, shots=[], phase="scan", scanning=false;
+let codeReader=null, videoStream=null, scanCanvas=null, scanCtx=null, scanTimer=null;
 
-/* ---------- DOM ---------- */
-const $ = id => document.getElementById(id);
-const video = $("video");
-const canvas = $("canvas");
-const ctx = canvas.getContext("2d");
+const $ = id=>document.getElementById(id);
+const video=$("video"), canvas=$("canvas"), ctx=canvas.getContext("2d");
 
-/* ---------- Pomocné ---------- */
-function toast(msg, ms=2200){
-  const t = $("toast"); t.textContent = msg; t.classList.add("show");
-  clearTimeout(t._t); t._t = setTimeout(()=>t.classList.remove("show"), ms);
-}
-function setStatus(text, kind){
-  $("statusText").textContent = text;
-  const d = $("statusDot"); d.className = "dot" + (kind?(" "+kind):"");
-}
-function buildName(code){
-  return [FIXED, S.brand, S.type, code].join("-");
-}
-function updateNamePreview(){
-  const code = currentCode || "<čiarový-kód>";
-  $("fnamePreview").textContent = buildName(code);
-}
+function toast(m,ms=2000){ const t=$("toast"); t.textContent=m; t.classList.add("show"); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("show"),ms); }
+function setStatus(t,k){ $("statusText").textContent=t; $("dot").className="dot"+(k?" "+k:""); }
+function buildName(code){ return [FIXED,S.brand,S.type,code].join("-"); }
+function updateName(){ $("fnamePreview").textContent = buildName(currentCode||"<kód>"); }
 
-/* ---------- Kamera + skener ---------- */
+/* ---------- Vodiaci rám: pozícia podľa orientácie ---------- */
+function layoutGuide(){
+  const land = window.innerWidth > window.innerHeight;
+  const g=$("guide"), gl=$("guideLabel");
+  // rám na číslo: na šírku stred, na výšku tiež stred ale užší
+  const w = land ? 0.5 : 0.7;       // šírka rámu (podiel)
+  const h = land ? 0.16 : 0.10;     // výška rámu
+  const left=(1-w)/2, top= land ? 0.46 : 0.42;
+  g.style.left=(left*100)+"%"; g.style.top=(top*100)+"%";
+  g.style.width=(w*100)+"%"; g.style.height=(h*100)+"%";
+  gl.style.top="calc("+((top)*100)+"% - 30px)";
+}
+window.addEventListener("resize", layoutGuide);
+window.addEventListener("orientationchange", ()=>setTimeout(layoutGuide,200));
+
+/* ---------- Kamera ---------- */
 async function startCamera(){
   try{
     setStatus("Spúšťam kameru…","busy");
     videoStream = await navigator.mediaDevices.getUserMedia({
-      video:{ facingMode:{ideal:"environment"}, width:{ideal:1920}, height:{ideal:1080} },
-      audio:false
-    });
-    video.srcObject = videoStream;
-    await video.play();
-    setStatus("Kamera beží — namier na čiarový kód","live");
+      video:{ facingMode:{ideal:"environment"}, width:{ideal:1920}, height:{ideal:1080} }, audio:false });
+    video.srcObject=videoStream; await video.play();
+    layoutGuide();
+    setStatus("Namier číslo do rámu a stlač spúšť","live");
     startScanning();
-  }catch(e){
-    setStatus("Kamera nedostupná: "+(e.message||e.name),"err");
-    toast("Nepodarilo sa spustiť kameru. Skontroluj povolenia a HTTPS.");
-  }
+  }catch(e){ setStatus("Kamera nedostupná: "+(e.message||e.name),"err"); toast("Skontroluj povolenia kamery a HTTPS."); }
 }
 
+/* ---------- Skener čiarového kódu (beží na pozadí ako bonus) ---------- */
 function startScanning(){
-  if(!window.ZXing){ setStatus("Knižnica skenera sa nenačítala","err"); return; }
-  if(!codeReader){
-    // nastav dekodér na bežné čiarové kódy; hinty obal do try (API sa líši medzi verziami)
+  if(window.ZXing && !codeReader){
     try{
-      const hints = new Map();
-      const F = ZXing.BarcodeFormat;
-      hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
-        F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39, F.CODE_93, F.ITF, F.CODABAR
-      ]);
-      hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-      codeReader = new ZXing.BrowserMultiFormatReader(hints);
-    }catch(e){
-      codeReader = new ZXing.BrowserMultiFormatReader();
-    }
-    scanCanvas = document.createElement("canvas");
-    scanCtx = scanCanvas.getContext("2d", { willReadFrequently:true });
+      const hints=new Map(), F=ZXing.BarcodeFormat;
+      hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS,[F.EAN_13,F.EAN_8,F.UPC_A,F.UPC_E,F.CODE_128,F.CODE_39,F.CODE_93,F.ITF,F.CODABAR]);
+      hints.set(ZXing.DecodeHintType.TRY_HARDER,true);
+      codeReader=new ZXing.BrowserMultiFormatReader(hints);
+    }catch(e){ try{ codeReader=new ZXing.BrowserMultiFormatReader(); }catch(_){} }
+    scanCanvas=document.createElement("canvas"); scanCtx=scanCanvas.getContext("2d",{willReadFrequently:true});
   }
-  scanning = true;
-  phase = "scan";
-  scanAttempts = 0;
+  scanning=true; phase="scan";
   document.body.classList.remove("shooting");
-  $("scanPhase").style.display = "";
-  $("photoPhase").style.display = "none";
-  $("shootBtn").style.display = "none";
-  $("camBadge").textContent = "Skenujem kód…";
-  $("camCount").style.display = "none";
+  $("scanShutter").style.display="";
+  $("photoShutter").style.display="none";
+  $("leftActions").style.display="none";
+  $("rightActions").style.display="none";
+  $("count").style.display = shots.length?"":"none";
+  $("badge").textContent="Pripravený";
   decodeLoop();
 }
-
 function decodeLoop(){
-  if(!scanning){ return; }
-  const vw = video.videoWidth, vh = video.videoHeight;
-  if(!vw || !vh){ scanTimer = setTimeout(decodeLoop, 200); return; }
-
-  // Výrez = oblasť zeleného rámu (top 30%–82%, left/right 24%) — tam, kam mieriš kód.
-  // Dekódovanie len tejto časti je presnejšie (okolitý text nemätie dekodér).
-  const cropX = Math.round(vw*0.20);
-  const cropY = Math.round(vh*0.28);
-  const cropW = Math.round(vw*0.60);
-  const cropH = Math.round(vh*0.56);
-
-  // vykresli výrez v plnom rozlíšení (bez zmenšovania → ostrejšie pruhy)
-  scanCanvas.width = cropW;
-  scanCanvas.height = cropH;
-  scanCtx.drawImage(video, cropX,cropY,cropW,cropH, 0,0,cropW,cropH);
-
-  let found = false;
-  try{
-    const result = codeReader.decodeFromCanvas(scanCanvas);
-    if(result && result.getText){ found = true; onCodeScanned(result.getText()); }
-  }catch(e){ /* v tejto snímke nič — normálne */ }
-
-  if(!found && scanning){
-    scanAttempts++;
-    if(scanAttempts===40){
-      setStatus("Kód sa nedarí naskenovať — použi „Odfotiť kód“","warn");
-    }
-    scanTimer = setTimeout(decodeLoop, 150);
-  }
+  if(!scanning || !codeReader){ return; }
+  const vw=video.videoWidth, vh=video.videoHeight;
+  if(!vw||!vh){ scanTimer=setTimeout(decodeLoop,250); return; }
+  // dekóduj oblasť vodiaceho rámu (kde mieriš)
+  const land=window.innerWidth>window.innerHeight;
+  const gw=land?0.5:0.7, gx=(1-gw)/2, gy=land?0.40:0.36, gh=land?0.30:0.22;
+  const cx=Math.round(vw*gx), cy=Math.round(vh*gy), cw=Math.round(vw*gw), ch=Math.round(vh*gh);
+  scanCanvas.width=cw; scanCanvas.height=ch;
+  scanCtx.drawImage(video,cx,cy,cw,ch,0,0,cw,ch);
+  let found=false;
+  try{ const r=codeReader.decodeFromCanvas(scanCanvas); if(r&&r.getText){ found=true; useCode(r.getText(),true); } }catch(e){}
+  if(!found && scanning){ scanTimer=setTimeout(decodeLoop,160); }
 }
 
-/* Povolené predpony kódu. Za predponou nasledujú len číslice. */
-const CODE_PREFIXES = ["HD","KD","PD","ND","H","K","P","N"]; // dlhšie najprv!
-
-/* Vyčisti surový text (zo skenu alebo OCR) na platný kód.
-   Opraví typické OCR zámeny v číselnej časti a vynúti známy vzor. */
+/* ---------- Normalizácia kódu podľa vzoru ---------- */
 function normalizeCode(raw){
   if(!raw) return "";
-  let s = raw.toUpperCase().replace(/[^A-Z0-9]/g,""); // len písmená a čísla
-  if(!s) return "";
-
-  // nájdi predponu
-  let prefix = "";
-  for(const p of CODE_PREFIXES){ if(s.startsWith(p)){ prefix = p; break; } }
-
-  // ak prvé znaky nesedia s predponou, skús opraviť časté OCR zámeny v písmenách
+  let s=raw.toUpperCase().replace(/[^A-Z0-9]/g,""); if(!s) return "";
+  let prefix="";
+  for(const p of CODE_PREFIXES){ if(s.startsWith(p)){ prefix=p; break; } }
   if(!prefix){
-    const letterFix = {"0":"O","1":"I","5":"S","8":"B","6":"G","2":"Z"};
-    let head = s.slice(0,2).split("").map(c=>letterFix[c]||c).join("");
-    for(const p of CODE_PREFIXES){ if((head+ s.slice(2)).startsWith(p)){ prefix=p; s=head+s.slice(2); break; } }
+    const lf={"0":"O","1":"I","5":"S","8":"B","6":"G","2":"Z"};
+    let head=s.slice(0,2).split("").map(c=>lf[c]||c).join("");
+    for(const p of CODE_PREFIXES){ if((head+s.slice(2)).startsWith(p)){ prefix=p; s=head+s.slice(2); break; } }
   }
-  if(!prefix) return s; // nevieme rozpoznať — vráť aspoň očistené
-
-  // zvyšok za predponou = číselná časť; oprav písmená pomýlené za číslice
-  let rest = s.slice(prefix.length);
-  const digitFix = {"O":"0","Q":"0","D":"0","I":"1","L":"1","Z":"2","S":"5","B":"8","G":"6","T":"7"};
-  rest = rest.split("").map(c=> /[0-9]/.test(c) ? c : (digitFix[c]||"") ).join("");
-  return prefix + rest;
+  if(!prefix) return s;
+  let rest=s.slice(prefix.length);
+  const df={"O":"0","Q":"0","D":"0","I":"1","L":"1","Z":"2","S":"5","B":"8","G":"6","T":"7"};
+  rest=rest.split("").map(c=> /[0-9]/.test(c)?c:(df[c]||"")).join("");
+  return prefix+rest;
 }
 
-function onCodeScanned(text){
-  const code = normalizeCode(text);
-  if(!code) return;
-  scanning = false;
-  if(scanTimer){ clearTimeout(scanTimer); scanTimer = null; }
-  if(navigator.vibrate) navigator.vibrate(60);
-  currentCode = code;
-  shots = [];
-  enterPhotoPhase();
-}
-
-function enterPhotoPhase(){
-  phase = "photo";
-  document.body.classList.add("shooting");
-  $("scanPhase").style.display = "none";
-  $("photoPhase").style.display = "";
-  $("shootBtn").style.display = "";
-  $("camBadge").textContent = currentCode;
-  $("camCount").style.display = "";
-  updateCount();
-  updateNamePreview();
-  renderThumbs();
-  setStatus("Kód: "+currentCode+" — odfoť produkt","live");
-  toast("Kód: "+currentCode);
-}
-
-function updateCount(){ $("camCount").textContent = shots.length; }
-
-/* ---------- Fotenie + spracovanie ---------- */
-async function takePhoto(){
-  if(phase!=="photo"){ return; }
-  const vw = video.videoWidth, vh = video.videoHeight;
+/* ---------- Spúšť v režime skenovania: odfoť → OCR → použi kód ---------- */
+$("scanShutter").addEventListener("click", async ()=>{
+  if(phase!=="scan") return;
+  const vw=video.videoWidth, vh=video.videoHeight;
   if(!vw||!vh){ toast("Kamera ešte nie je pripravená"); return; }
+  if(typeof Tesseract==="undefined"){ toast("OCR sa ešte načítava, skús o chvíľu"); return; }
 
-  // 1) zachyť snímku
-  let w = vw, h = vh;
-  const maxDim = parseInt(S.maxDim,10)||0;
-  if(maxDim>0){
-    const longSide = Math.max(w,h);
-    if(longSide>maxDim){ const r = maxDim/longSide; w = Math.round(w*r); h = Math.round(h*r); }
-  }
-  canvas.width = w; canvas.height = h;
+  $("scanShutter").classList.add("busy");
+  setStatus("Čítam kód z fotky…","busy");
 
-  // filter + jas
-  let f = "";
-  if(S.filter==="bw") f += "grayscale(1) ";
-  if(S.filter==="contrast") f += "contrast(1.25) saturate(1.05) ";
-  f += "brightness("+(S.brightness/100)+")";
-  ctx.filter = f.trim();
-  ctx.drawImage(video, 0,0, w,h);
-  ctx.filter = "none";
+  // výrez = oblasť vodiaceho rámu (číslo)
+  const land=window.innerWidth>video.videoHeight? (window.innerWidth>window.innerHeight):(window.innerWidth>window.innerHeight);
+  const isLand=window.innerWidth>window.innerHeight;
+  const gw=isLand?0.5:0.7, gx=(1-gw)/2, gy=isLand?0.46:0.42, gh=isLand?0.16:0.10;
+  const sx=Math.round(vw*gx), sy=Math.round(vh*gy), sw=Math.round(vw*gw), sh=Math.round(vh*gh);
 
-  // 2) watermark
+  const up=3, oc=document.createElement("canvas");
+  oc.width=sw*up; oc.height=sh*up;
+  const o=oc.getContext("2d");
+  o.drawImage(video,sx,sy,sw,sh,0,0,oc.width,oc.height);
+  threshold(o,oc.width,oc.height);
+
+  try{
+    const { data } = await Tesseract.recognize(oc,"eng",{ tessedit_char_whitelist:"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", tessedit_pageseg_mode:"7" });
+    const raw=(data.text||"").trim();
+    const tokens=raw.split(/[^A-Za-z0-9]+/).filter(Boolean);
+    let best="";
+    for(const t of tokens){ const n=normalizeCode(t); const ok=CODE_PREFIXES.some(p=>n.startsWith(p)); const dg=(n.match(/[0-9]/g)||[]).length; if(ok&&dg>=1&&n.length>best.length) best=n; }
+    if(!best) best=normalizeCode(raw);
+    if(best && best.length>=2){ useCode(best,false); }
+    else { setStatus("Kód sa nepodarilo prečítať — prefoť alebo zadaj ručne","warn"); toast("Nečitateľné — skús bližšie/lepšie svetlo"); }
+  }catch(e){ toast("Chyba OCR: "+(e.message||e)); setStatus("OCR zlyhalo","err"); }
+  finally{ $("scanShutter").classList.remove("busy"); }
+});
+
+/* dlhé podržanie spúšte = ručné zadanie */
+let pressTimer=null;
+$("scanShutter").addEventListener("touchstart",()=>{ pressTimer=setTimeout(()=>{ const c=prompt("Zadaj kód ručne:"); if(c&&c.trim()) useCode(c,false); },650); });
+$("scanShutter").addEventListener("touchend",()=>clearTimeout(pressTimer));
+
+/* ---------- Po získaní kódu: rovno prejdi na fotenie produktu ---------- */
+function useCode(text, fromBarcode){
+  const code=normalizeCode(text);
+  if(!code) return;
+  scanning=false; if(scanTimer){ clearTimeout(scanTimer); scanTimer=null; }
+  if(navigator.vibrate) navigator.vibrate(60);
+  currentCode=code; shots=[];
+  // bliknutie veľkého kódu
+  $("bigcodeText").textContent=code;
+  const bc=$("bigcode"); bc.classList.add("show"); setTimeout(()=>bc.classList.remove("show"),900);
+  enterPhoto();
+}
+
+function enterPhoto(){
+  phase="photo";
+  document.body.classList.add("shooting");
+  $("scanShutter").style.display="none";
+  $("photoShutter").style.display="";
+  $("leftActions").style.display="";
+  $("rightActions").style.display="";
+  $("count").style.display=""; updateCount();
+  $("badge").textContent=currentCode;
+  $("guide").style.display="none"; $("guideLabel").style.display="none";
+  updateName();
+  setStatus("Foť produkt — spúšť. Hotovo = ďalší kód.","live");
+}
+function updateCount(){ $("count").textContent=shots.length; }
+
+/* ---------- Fotenie produktu ---------- */
+$("photoShutter").addEventListener("click", takePhoto);
+async function takePhoto(){
+  if(phase!=="photo") return;
+  const vw=video.videoWidth, vh=video.videoHeight;
+  if(!vw||!vh){ toast("Kamera nie je pripravená"); return; }
+  let w=vw,h=vh; const md=parseInt(S.maxDim,10)||0;
+  if(md>0){ const ls=Math.max(w,h); if(ls>md){ const r=md/ls; w=Math.round(w*r); h=Math.round(h*r); } }
+  canvas.width=w; canvas.height=h;
+  let f=""; if(S.filter==="bw") f+="grayscale(1) "; if(S.filter==="contrast") f+="contrast(1.25) saturate(1.05) ";
+  f+="brightness("+(S.brightness/100)+")"; ctx.filter=f.trim();
+  ctx.drawImage(video,0,0,w,h); ctx.filter="none";
   await drawWatermark(w,h);
-
-  // 3) export blob
-  const q = (S.quality||80)/100;
-  const blob = await new Promise(res=> canvas.toBlob(res, "image/jpeg", q));
-  if(!blob){ toast("Nepodarilo sa vytvoriť fotku"); return; }
-
-  const idx = shots.length + 1;
-  const name = buildName(currentCode) + "-" + idx + ".jpg";
-  const shot = { blob, name, uploaded:false };
-  shots.push(shot);
-  updateCount();
-  renderThumbs();
+  const blob=await new Promise(res=>canvas.toBlob(res,"image/jpeg",(S.quality||80)/100));
+  if(!blob){ toast("Fotku sa nepodarilo vytvoriť"); return; }
+  const idx=shots.length+1, name=buildName(currentCode)+"-"+idx+".jpg";
+  const shot={blob,name,uploaded:false}; shots.push(shot); updateCount();
   if(navigator.vibrate) navigator.vibrate(30);
-
-  // 4) upload na Dropbox (na pozadí)
   uploadShot(shot);
 }
-
-function drawWatermark(w,h){
-  return new Promise(resolve=>{
-    if(!S.wmImage){ resolve(); return; }
-    const img = new Image();
-    img.onload = ()=>{
-      const targetW = w * (S.wmSize/100);
-      const ratio = img.height/img.width;
-      const wmW = targetW, wmH = targetW*ratio;
-      const m = w*0.03; // okraj
-      let x,y;
-      switch(S.wmPos){
-        case "bl": x=m; y=h-wmH-m; break;
-        case "tr": x=w-wmW-m; y=m; break;
-        case "tl": x=m; y=m; break;
-        case "center": x=(w-wmW)/2; y=(h-wmH)/2; break;
-        default: x=w-wmW-m; y=h-wmH-m; // br
-      }
-      ctx.globalAlpha = S.wmOpacity/100;
-      ctx.drawImage(img, x,y, wmW,wmH);
-      ctx.globalAlpha = 1;
-      resolve();
-    };
-    img.onerror = ()=>resolve();
-    img.src = S.wmImage;
-  });
-}
-
-function renderThumbs(){
-  const c = $("thumbs"); c.innerHTML = "";
-  shots.forEach(s=>{
-    const d = document.createElement("div"); d.className="thumb";
-    const im = document.createElement("img"); im.src = URL.createObjectURL(s.blob);
-    d.appendChild(im);
-    const badge = document.createElement("div");
-    if(s.uploaded){ badge.className="up"; badge.innerHTML='<svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7"/></svg>'; }
-    else{ badge.className="pend"; }
-    d.appendChild(badge);
-    c.appendChild(d);
-  });
-}
-
-/* ---------- Dropbox upload ---------- */
-function todayFolder(){
-  const d = new Date();
-  const p = n=> String(n).padStart(2,"0");
-  return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate());
-}
-
-async function uploadShot(shot){
-  if(!S.dbxToken){ setStatus("Bez tokenu — fotka neodoslaná. Doplň token v nastaveniach.","warn"); return; }
-  const path = "/"+todayFolder()+"/"+shot.name;
-  try{
-    setStatus("Nahrávam "+shot.name+" …","busy");
-    const res = await fetch("https://content.dropboxapi.com/2/files/upload",{
-      method:"POST",
-      headers:{
-        "Authorization":"Bearer "+S.dbxToken,
-        "Content-Type":"application/octet-stream",
-        "Dropbox-API-Arg":JSON.stringify({
-          path:path, mode:"add", autorename:true, mute:true, strict_conflict:false
-        })
-      },
-      body: shot.blob
-    });
-    if(res.ok){
-      shot.uploaded = true; renderThumbs();
-      setStatus("Nahraté: "+shot.name,"live");
-    }else{
-      const txt = await res.text();
-      setStatus("Chyba uploadu ("+res.status+")","err");
-      toast("Dropbox odmietol upload. Skontroluj token.");
-      console.warn("Dropbox error:", txt);
-    }
-  }catch(e){
-    setStatus("Sieťová chyba pri uploade","err");
-    toast("Upload zlyhal — skontroluj internet.");
-  }
-}
-
-/* ---------- Tlačidlá fotenia ---------- */
-$("shootBtn").addEventListener("click", takePhoto);
+function drawWatermark(w,h){ return new Promise(res=>{
+  if(!S.wmImage){ res(); return; }
+  const img=new Image();
+  img.onload=()=>{ const tw=w*(S.wmSize/100), r=img.height/img.width, ww=tw, wh=tw*r, m=w*0.03; let x,y;
+    switch(S.wmPos){ case"bl":x=m;y=h-wh-m;break; case"tr":x=w-ww-m;y=m;break; case"tl":x=m;y=m;break; case"center":x=(w-ww)/2;y=(h-wh)/2;break; default:x=w-ww-m;y=h-wh-m; }
+    ctx.globalAlpha=S.wmOpacity/100; ctx.drawImage(img,x,y,ww,wh); ctx.globalAlpha=1; res(); };
+  img.onerror=()=>res(); img.src=S.wmImage;
+}); }
 
 $("doneBtn").addEventListener("click", ()=>{
-  if(shots.length===0){ toast("Najprv odfoť aspoň jednu fotku (alebo Zrušiť produkt)"); return; }
-  const pending = shots.filter(s=>!s.uploaded).length;
-  if(pending>0) toast("Pozor: "+pending+" fotiek sa ešte nahráva");
-  currentCode = null; shots = [];
-  $("thumbs").innerHTML = "";
-  updateNamePreview();
-  startScanning();
-  setStatus("Hotovo — naskenuj ďalší kód","live");
+  if(shots.length===0){ toast("Najprv odfoť produkt, alebo Zrušiť"); return; }
+  const pend=shots.filter(s=>!s.uploaded).length; if(pend>0) toast(pend+" fotiek sa ešte nahráva");
+  currentCode=null; shots=[];
+  $("guide").style.display=""; $("guideLabel").style.display="";
+  updateName(); startScanning(); setStatus("Hotovo — namier ďalší kód","live");
 });
-
 $("cancelProduct").addEventListener("click", ()=>{
-  currentCode = null; shots = [];
-  $("thumbs").innerHTML = "";
-  updateNamePreview();
-  startScanning();
-  setStatus("Produkt zrušený — naskenuj kód","live");
+  currentCode=null; shots=[];
+  $("guide").style.display=""; $("guideLabel").style.display="";
+  updateName(); startScanning(); setStatus("Zrušené — namier kód","live");
 });
 
-$("manualCode").addEventListener("click", ()=>{
-  const code = prompt("Zadaj čiarový kód ručne:");
-  if(code && code.trim()){ onCodeScanned(code); }
-});
-
-/* ---------- OCR cez zachytenie obrazu a výber výrezu ---------- */
-// Tlačidlo "Odfotiť kód" zmrazí obraz; používateľ označí číslo; OCR číta len výrez.
-const freezeCanvas = $("freezeCanvas");
-const freezeCtx = freezeCanvas.getContext("2d");
-let sel = null; // {x,y,w,h} v pixeloch plátna
-let dragStart = null;
-let displayRect = null; // ako je plátno reálne zobrazené (object-fit:contain)
-
-$("ocrBtn").addEventListener("click", ()=>{
-  const vw = video.videoWidth, vh = video.videoHeight;
-  if(!vw||!vh){ toast("Kamera ešte nie je pripravená"); return; }
-  // zmraz aktuálnu snímku do plátna v plnom rozlíšení
-  freezeCanvas.width = vw; freezeCanvas.height = vh;
-  freezeCtx.drawImage(video, 0,0, vw,vh);
-  // otvor vrstvu výberu
-  sel = null;
-  $("selBox").classList.remove("show");
-  $("captureRead").disabled = true;
-  $("captureLayer").classList.add("open");
-  // predvyplň výber do oblasti rámu (uľahčí to – stačí doladiť)
-  setTimeout(()=>{
-    computeDisplayRect();
-    presetSelection();
-  }, 30);
-});
-
-$("captureCancel").addEventListener("click", ()=>{
-  $("captureLayer").classList.remove("open");
-  setStatus("Zrušené — skenujem ďalej","live");
-});
-
-// dotyk na tlačidlách nech sa nezačne interpretovať ako ťahanie výberu
-["captureCancel","captureRead"].forEach(id=>{
-  const el = $(id);
-  ["touchstart","mousedown"].forEach(ev=> el.addEventListener(ev, e=> e.stopPropagation()));
-});
-
-// prepočet ako je plátno zobrazené v rámci obrazovky (object-fit:contain)
-function computeDisplayRect(){
-  const cw = freezeCanvas.width, ch = freezeCanvas.height;
-  const ew = window.innerWidth, eh = window.innerHeight;
-  const scale = Math.min(ew/cw, eh/ch);
-  const dw = cw*scale, dh = ch*scale;
-  displayRect = { left:(ew-dw)/2, top:(eh-dh)/2, width:dw, height:dh, scale };
-}
-
-// predvyplnený výber tam, kde býva číslo (stred-dole), nech to netreba kresliť od nuly
-function presetSelection(){
-  const cw = freezeCanvas.width, ch = freezeCanvas.height;
-  sel = { x:Math.round(cw*0.28), y:Math.round(ch*0.52), w:Math.round(cw*0.44), h:Math.round(ch*0.16) };
-  drawSelection();
-  $("captureRead").disabled = false;
-}
-
-// prevod medzi súradnicami obrazovky a plátna
-function screenToCanvas(px,py){
-  if(!displayRect) computeDisplayRect();
-  return {
-    x:(px - displayRect.left)/displayRect.scale,
-    y:(py - displayRect.top)/displayRect.scale
-  };
-}
-function drawSelection(){
-  if(!sel || !displayRect){ $("selBox").classList.remove("show"); return; }
-  const b = $("selBox");
-  b.style.left   = (displayRect.left + sel.x*displayRect.scale) + "px";
-  b.style.top    = (displayRect.top  + sel.y*displayRect.scale) + "px";
-  b.style.width  = (sel.w*displayRect.scale) + "px";
-  b.style.height = (sel.h*displayRect.scale) + "px";
-  b.classList.add("show");
-}
-
-// ťahanie prstom / myšou na vrstve
-const capLayer = $("captureLayer");
-// ťahanie ignorujeme, ak sa začalo na tlačidle/nápovede (inak by klik resetoval výber)
-function isControl(target){
-  return target.closest && target.closest(".capture-actions, .capture-hint, .btn");
-}
-function pointerDown(e){
-  if(isControl(e.target)) return;          // klik na tlačidlo → neťaháme
-  const p = (e.touches&&e.touches[0]) || e;
-  computeDisplayRect();
-  dragStart = screenToCanvas(p.clientX, p.clientY);
-  sel = { x:dragStart.x, y:dragStart.y, w:0, h:0 };
-}
-function pointerMove(e){
-  if(!dragStart) return;
-  e.preventDefault();
-  const p = (e.touches&&e.touches[0]) || e;
-  const cur = screenToCanvas(p.clientX, p.clientY);
-  sel = {
-    x:Math.min(dragStart.x, cur.x),
-    y:Math.min(dragStart.y, cur.y),
-    w:Math.abs(cur.x-dragStart.x),
-    h:Math.abs(cur.y-dragStart.y)
-  };
-  drawSelection();
-  $("captureRead").disabled = false;       // hneď ako kreslíš dostatočne veľký, odblokuj
-}
-function pointerUp(e){
-  if(!dragStart) return;
-  dragStart = null;
-  if(sel && sel.w>15 && sel.h>8){ $("captureRead").disabled = false; }
-}
-capLayer.addEventListener("touchstart", pointerDown, {passive:false});
-capLayer.addEventListener("touchmove", pointerMove, {passive:false});
-capLayer.addEventListener("touchend", pointerUp);
-capLayer.addEventListener("mousedown", pointerDown);
-capLayer.addEventListener("mousemove", pointerMove);
-capLayer.addEventListener("mouseup", pointerUp);
-
-// prečítaj OCR len z označeného výrezu
-$("captureRead").addEventListener("click", async ()=>{
-  if(typeof Tesseract==="undefined"){ toast("OCR knižnica sa ešte načítava, skús o chvíľu"); return; }
-  // ak výber chýba/je primalý, použi predvyplnenú oblasť (nech to nikdy neodbije)
-  if(!sel || sel.w<15 || sel.h<8){ presetSelection(); }
-  if(!sel){ toast("Skús to znova"); return; }
-  $("captureRead").textContent = "Čítam…";
-  $("captureRead").disabled = true;
-
-  // vyrež označenú oblasť z plného plátna
-  const sx=Math.max(0,Math.round(sel.x)), sy=Math.max(0,Math.round(sel.y));
-  const sw=Math.round(sel.w), sh=Math.round(sel.h);
-
-  // pripravený výrez: zväčši ~3×, do šedej, prahovanie (čisto čierna/biela)
-  const up = 3;
-  const oc = document.createElement("canvas");
-  oc.width = sw*up; oc.height = sh*up;
-  const octx = oc.getContext("2d");
-  octx.imageSmoothingEnabled = true;
-  octx.drawImage(freezeCanvas, sx,sy,sw,sh, 0,0, oc.width, oc.height);
-  thresholdCanvas(octx, oc.width, oc.height);
-
+/* ---------- Dropbox ---------- */
+function todayFolder(){ const d=new Date(), p=n=>String(n).padStart(2,"0"); return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate()); }
+async function uploadShot(shot){
+  if(!S.dbxToken){ setStatus("Bez tokenu — fotka neuložená (doplň v nastaveniach)","warn"); return; }
   try{
-    const { data } = await Tesseract.recognize(oc, "eng", {
-      tessedit_char_whitelist:"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
-      tessedit_pageseg_mode:"7" // jeden riadok textu
-    });
-    const raw = (data.text||"").trim();
-    const tokens = raw.split(/[^A-Za-z0-9]+/).filter(Boolean);
-    let best="";
-    for(const t of tokens){
-      const n = normalizeCode(t);
-      const hasPrefix = CODE_PREFIXES.some(p=>n.startsWith(p));
-      const digits = (n.match(/[0-9]/g)||[]).length;
-      if(hasPrefix && digits>=1 && n.length>best.length) best=n;
-    }
-    if(!best) best = normalizeCode(raw);
-
-    const proposal = best || raw.replace(/[^A-Za-z0-9]/g,"").toUpperCase();
-    const confirmed = prompt("Prečítaný kód (oprav ak treba):", proposal);
-    if(confirmed && confirmed.trim()){
-      $("captureLayer").classList.remove("open");
-      onCodeScanned(confirmed);
-    }else{
-      setStatus("Skús označiť presnejšie alebo zadaj ručne","warn");
-    }
-  }catch(e){
-    toast("Chyba OCR: "+(e.message||e));
-  }finally{
-    $("captureRead").textContent = "Prečítať označené";
-    $("captureRead").disabled = false;
-  }
-});
-
-// jednoduché prahovanie na čiernobielo (Otsu-lite: pevný prah okolo priemeru)
-function thresholdCanvas(c, w, h){
-  const img = c.getImageData(0,0,w,h);
-  const d = img.data;
-  let sum=0;
-  for(let i=0;i<d.length;i+=4){ const g=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2]; sum+=g; }
-  const mean = sum/(d.length/4);
-  const thr = mean*0.92; // mierne pod priemer
-  for(let i=0;i<d.length;i+=4){
-    const g=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
-    const v = g<thr ? 0 : 255;
-    d[i]=d[i+1]=d[i+2]=v;
-  }
-  c.putImageData(img,0,0);
+    setStatus("Nahrávam "+shot.name+"…","busy");
+    const res=await fetch("https://content.dropboxapi.com/2/files/upload",{ method:"POST",
+      headers:{ "Authorization":"Bearer "+S.dbxToken, "Content-Type":"application/octet-stream",
+        "Dropbox-API-Arg":JSON.stringify({ path:"/"+todayFolder()+"/"+shot.name, mode:"add", autorename:true, mute:true }) },
+      body:shot.blob });
+    if(res.ok){ shot.uploaded=true; setStatus("Nahraté: "+shot.name,"live"); }
+    else{ setStatus("Chyba uploadu ("+res.status+")","err"); toast("Dropbox odmietol — skontroluj token"); }
+  }catch(e){ setStatus("Sieťová chyba pri uploade","err"); }
 }
 
-/* ---------- Skrytie / zobrazenie ovládacieho panela ---------- */
-$("togglePanel").addEventListener("click", ()=>{
-  const hidden = document.body.classList.toggle("panel-hidden");
-  // otoč šípku
-  $("toggleIcon").innerHTML = hidden ? '<path d="M15 18l-6-6 6-6"/>' : '<path d="M9 18l6-6-6-6"/>';
-});
+/* ---------- Prahovanie ---------- */
+function threshold(c,w,h){ const im=c.getImageData(0,0,w,h), d=im.data; let s=0;
+  for(let i=0;i<d.length;i+=4){ s+=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2]; }
+  const thr=(s/(d.length/4))*0.92;
+  for(let i=0;i<d.length;i+=4){ const g=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2], v=g<thr?0:255; d[i]=d[i+1]=d[i+2]=v; }
+  c.putImageData(im,0,0);
+}
 
-/* ---------- Filename builder ---------- */
-$("brand").addEventListener("change", e=>{ S.brand=e.target.value; saveSettings(); updateNamePreview(); });
-$("type").addEventListener("change", e=>{ S.type=e.target.value; saveSettings(); updateNamePreview(); });
-
-/* ---------- Nastavenia: otvorenie/zatvorenie ---------- */
-$("openSettings").addEventListener("click", ()=>{ $("settingsPanel").classList.add("open"); document.body.classList.add("settings-open"); });
-$("closeSettings").addEventListener("click", ()=>{ $("settingsPanel").classList.remove("open"); document.body.classList.remove("settings-open"); });
-
-/* ---------- Nastavenia: viazanie hodnôt ---------- */
-$("dbxToken").addEventListener("input", e=>{ S.dbxToken=e.target.value.trim(); saveSettings(); });
-$("testDbx").addEventListener("click", async ()=>{
+/* ---------- Nastavenia ---------- */
+$("openSettings").addEventListener("click",()=>$("settingsPanel").classList.add("open"));
+$("closeSettings").addEventListener("click",()=>$("settingsPanel").classList.remove("open"));
+$("brand").addEventListener("change",e=>{ S.brand=e.target.value; save(); updateName(); });
+$("type").addEventListener("change",e=>{ S.type=e.target.value; save(); updateName(); });
+$("dbxToken").addEventListener("input",e=>{ S.dbxToken=e.target.value.trim(); save(); });
+$("testDbx").addEventListener("click",async()=>{
   if(!S.dbxToken){ toast("Najprv vlož token"); return; }
-  try{
-    const res = await fetch("https://api.dropboxapi.com/2/users/get_current_account",{
-      method:"POST", headers:{"Authorization":"Bearer "+S.dbxToken}
-    });
-    if(res.ok){ const j = await res.json(); toast("Pripojené: "+(j.name?j.name.display_name:"OK")); }
-    else toast("Token neplatný ("+res.status+")");
-  }catch(e){ toast("Chyba siete pri teste"); }
+  try{ const r=await fetch("https://api.dropboxapi.com/2/users/get_current_account",{method:"POST",headers:{"Authorization":"Bearer "+S.dbxToken}});
+    if(r.ok){ const j=await r.json(); toast("Pripojené: "+(j.name?j.name.display_name:"OK")); } else toast("Token neplatný ("+r.status+")"); }
+  catch(e){ toast("Chyba siete"); }
 });
+$("wmFile").addEventListener("change",e=>{ const f=e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ S.wmImage=r.result; save(); wmPrev(); toast("Logo uložené"); }; r.readAsDataURL(f); });
+$("wmClear").addEventListener("click",()=>{ S.wmImage=""; save(); wmPrev(); $("wmFile").value=""; });
+function wmPrev(){ $("wmPreview").innerHTML = S.wmImage? '<img src="'+S.wmImage+'">' : '<span>žiadny<br>obrázok</span>'; }
+$("wmPos").addEventListener("change",e=>{ S.wmPos=e.target.value; save(); });
+function bindRange(i,v,k,suf){ const inp=$(i),val=$(v); inp.addEventListener("input",()=>{ S[k]=parseInt(inp.value,10); val.textContent=inp.value+" "+suf; save(); }); }
+bindRange("wmSize","wmSizeVal","wmSize","%"); bindRange("wmOpacity","wmOpacityVal","wmOpacity","%");
+bindRange("brightness","brightnessVal","brightness","%"); bindRange("quality","qualityVal","quality","%");
+document.querySelectorAll("#filterCtrl button").forEach(b=>b.addEventListener("click",()=>{ document.querySelectorAll("#filterCtrl button").forEach(x=>x.classList.remove("active")); b.classList.add("active"); S.filter=b.dataset.f; save(); }));
+$("maxDim").addEventListener("change",e=>{ S.maxDim=parseInt(e.target.value,10); save(); });
 
-/* watermark */
-$("wmFile").addEventListener("change", e=>{
-  const file = e.target.files[0]; if(!file) return;
-  const reader = new FileReader();
-  reader.onload = ()=>{ S.wmImage = reader.result; saveSettings(); renderWmPreview(); toast("Logo uložené"); };
-  reader.readAsDataURL(file);
-});
-$("wmClear").addEventListener("click", ()=>{ S.wmImage=""; saveSettings(); renderWmPreview(); $("wmFile").value=""; });
-function renderWmPreview(){
-  const p = $("wmPreview");
-  if(S.wmImage){ p.innerHTML = '<img src="'+S.wmImage+'">'; }
-  else{ p.innerHTML = '<span>žiadny<br>obrázok</span>'; }
-}
-$("wmPos").addEventListener("change", e=>{ S.wmPos=e.target.value; saveSettings(); });
-bindRange("wmSize","wmSizeVal","wmSize","%");
-bindRange("wmOpacity","wmOpacityVal","wmOpacity","%");
-
-/* filter */
-document.querySelectorAll("#filterCtrl button").forEach(b=>{
-  b.addEventListener("click", ()=>{
-    document.querySelectorAll("#filterCtrl button").forEach(x=>x.classList.remove("active"));
-    b.classList.add("active"); S.filter=b.dataset.f; saveSettings();
-  });
-});
-bindRange("brightness","brightnessVal","brightness","%");
-
-/* veľkosť/kvalita */
-$("maxDim").addEventListener("change", e=>{ S.maxDim=parseInt(e.target.value,10); saveSettings(); });
-bindRange("quality","qualityVal","quality","%");
-
-function bindRange(inputId, valId, key, suffix){
-  const inp = $(inputId), val = $(valId);
-  inp.addEventListener("input", ()=>{ S[key]=parseInt(inp.value,10); val.textContent=inp.value+" "+suffix; saveSettings(); });
-}
-
-/* ---------- Inicializácia UI z uložených hodnôt ---------- */
+/* ---------- Init ---------- */
 function hydrate(){
-  $("brand").value = S.brand;
-  $("type").value = S.type;
-  $("dbxToken").value = S.dbxToken;
-  $("wmPos").value = S.wmPos;
-  $("wmSize").value = S.wmSize; $("wmSizeVal").textContent = S.wmSize+" %";
-  $("wmOpacity").value = S.wmOpacity; $("wmOpacityVal").textContent = S.wmOpacity+" %";
-  $("brightness").value = S.brightness; $("brightnessVal").textContent = S.brightness+" %";
-  $("quality").value = S.quality; $("qualityVal").textContent = S.quality+" %";
-  $("maxDim").value = S.maxDim;
-  document.querySelectorAll("#filterCtrl button").forEach(b=>{
-    b.classList.toggle("active", b.dataset.f===S.filter);
-  });
-  renderWmPreview();
-  updateNamePreview();
+  $("brand").value=S.brand; $("type").value=S.type; $("dbxToken").value=S.dbxToken;
+  $("wmPos").value=S.wmPos; $("wmSize").value=S.wmSize; $("wmSizeVal").textContent=S.wmSize+" %";
+  $("wmOpacity").value=S.wmOpacity; $("wmOpacityVal").textContent=S.wmOpacity+" %";
+  $("brightness").value=S.brightness; $("brightnessVal").textContent=S.brightness+" %";
+  $("quality").value=S.quality; $("qualityVal").textContent=S.quality+" %"; $("maxDim").value=S.maxDim;
+  document.querySelectorAll("#filterCtrl button").forEach(b=>b.classList.toggle("active",b.dataset.f===S.filter));
+  wmPrev(); updateName();
 }
-
-hydrate();
-startCamera();
-
-/* uvoľni kameru pri zatvorení */
-window.addEventListener("pagehide", ()=>{ if(videoStream) videoStream.getTracks().forEach(t=>t.stop()); });
+hydrate(); layoutGuide(); startCamera();
+window.addEventListener("pagehide",()=>{ if(videoStream) videoStream.getTracks().forEach(t=>t.stop()); });
 </script>
 </body>
 </html>
