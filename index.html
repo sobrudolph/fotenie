@@ -190,6 +190,7 @@
     <div class="cam-badge" id="camBadge">Skenujem kód…</div>
     <div class="topbar-right">
       <div class="cam-count" id="camCount" style="display:none">0</div>
+      <div style="font-size:10px;color:var(--accent);align-self:center;font-weight:700;opacity:.8">v2</div>
       <div class="icon-btn" id="togglePanel" aria-label="Skryť ovládanie">
         <svg id="toggleIcon" viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
       </div>
@@ -725,6 +726,12 @@ $("ocrBtn").addEventListener("click", ()=>{
 $("captureCancel").addEventListener("click", ()=>{
   $("captureLayer").classList.remove("open");
   setStatus("Zrušené — skenujem ďalej","live");
+});
+
+// dotyk na tlačidlách nech sa nezačne interpretovať ako ťahanie výberu
+["captureCancel","captureRead"].forEach(id=>{
+  const el = $(id);
+  ["touchstart","mousedown"].forEach(ev=> el.addEventListener(ev, e=> e.stopPropagation()));
 });
 
 // prepočet ako je plátno zobrazené v rámci obrazovky (object-fit:contain)
