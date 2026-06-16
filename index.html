@@ -764,7 +764,12 @@ function drawSelection(){
 
 // ťahanie prstom / myšou na vrstve
 const capLayer = $("captureLayer");
+// ťahanie ignorujeme, ak sa začalo na tlačidle/nápovede (inak by klik resetoval výber)
+function isControl(target){
+  return target.closest && target.closest(".capture-actions, .capture-hint, .btn");
+}
 function pointerDown(e){
+  if(isControl(e.target)) return;          // klik na tlačidlo → neťaháme
   const p = (e.touches&&e.touches[0]) || e;
   computeDisplayRect();
   dragStart = screenToCanvas(p.clientX, p.clientY);
@@ -782,12 +787,12 @@ function pointerMove(e){
     h:Math.abs(cur.y-dragStart.y)
   };
   drawSelection();
+  $("captureRead").disabled = false;       // hneď ako kreslíš dostatočne veľký, odblokuj
 }
-function pointerUp(){
+function pointerUp(e){
   if(!dragStart) return;
   dragStart = null;
-  // platný výber musí mať rozumnú veľkosť
-  if(sel && sel.w>20 && sel.h>10){ $("captureRead").disabled = false; }
+  if(sel && sel.w>15 && sel.h>8){ $("captureRead").disabled = false; }
 }
 capLayer.addEventListener("touchstart", pointerDown, {passive:false});
 capLayer.addEventListener("touchmove", pointerMove, {passive:false});
@@ -799,7 +804,9 @@ capLayer.addEventListener("mouseup", pointerUp);
 // prečítaj OCR len z označeného výrezu
 $("captureRead").addEventListener("click", async ()=>{
   if(typeof Tesseract==="undefined"){ toast("OCR knižnica sa ešte načítava, skús o chvíľu"); return; }
-  if(!sel || sel.w<10 || sel.h<8){ toast("Najprv označ číslo obdĺžnikom"); return; }
+  // ak výber chýba/je primalý, použi predvyplnenú oblasť (nech to nikdy neodbije)
+  if(!sel || sel.w<15 || sel.h<8){ presetSelection(); }
+  if(!sel){ toast("Skús to znova"); return; }
   $("captureRead").textContent = "Čítam…";
   $("captureRead").disabled = true;
 
