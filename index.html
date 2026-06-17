@@ -165,14 +165,14 @@
 
   <!-- vodiaci rám na číslo -->
   <div class="guide" id="guide"></div>
-  <div class="guide-label" id="guideLabel">Číslo pod kódom sem</div>
+  <div class="guide-label" id="guideLabel">Celú nálepku do rámu</div>
 
   <!-- horný pruh -->
   <div class="topbar">
     <div class="badge" id="badge">Pripravený</div>
     <div class="topbar-right">
       <div class="count" id="count" style="display:none">0</div>
-      <div class="ver">v0.4</div>
+      <div class="ver">v0.5</div>
       <div class="icon-btn" id="openSettings" aria-label="Nastavenia">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
       </div>
@@ -282,7 +282,7 @@
 
 <script>
 "use strict";
-const APP_VERSION = "v0.4";
+const APP_VERSION = "v0.5";
 
 /* ---------- Nastavenia ---------- */
 const LS_KEY = "skener_v3";
@@ -309,9 +309,9 @@ function layoutGuide(){
   const land = window.innerWidth > window.innerHeight;
   const g=$("guide"), gl=$("guideLabel");
   // rám na číslo: na šírku stred, na výšku tiež stred ale užší
-  const w = land ? 0.5 : 0.7;       // šírka rámu (podiel)
-  const h = land ? 0.16 : 0.10;     // výška rámu
-  const left=(1-w)/2, top= land ? 0.46 : 0.42;
+  const w = land ? 0.62 : 0.84;     // šírka rámu (celá nálepka)
+  const h = land ? 0.45 : 0.40;     // výška rámu
+  const left=(1-w)/2, top= land ? 0.30 : 0.30;
   g.style.left=(left*100)+"%"; g.style.top=(top*100)+"%";
   g.style.width=(w*100)+"%"; g.style.height=(h*100)+"%";
   gl.style.top="calc("+((top)*100)+"% - 30px)";
@@ -396,30 +396,51 @@ $("scanShutter").addEventListener("click", async ()=>{
   $("scanShutter").classList.add("busy");
   setStatus("Čítam kód z fotky…","busy");
 
-  // výrez = oblasť vodiaceho rámu (číslo)
-  const land=window.innerWidth>video.videoHeight? (window.innerWidth>window.innerHeight):(window.innerWidth>window.innerHeight);
+  // Čítame CELÚ oblasť vodiaceho rámu (celá nálepka). OCR prečíta všetko,
+  // potom vyfiltrujeme len kód podľa vzoru a čiarové kódy ignorujeme.
   const isLand=window.innerWidth>window.innerHeight;
-  const gw=isLand?0.5:0.7, gx=(1-gw)/2, gy=isLand?0.46:0.42, gh=isLand?0.16:0.10;
+  const gw=isLand?0.62:0.84, gx=(1-gw)/2, gy=isLand?0.30:0.30, gh=isLand?0.45:0.40;
   const sx=Math.round(vw*gx), sy=Math.round(vh*gy), sw=Math.round(vw*gw), sh=Math.round(vh*gh);
 
-  const up=3, oc=document.createElement("canvas");
+  const up=2, oc=document.createElement("canvas");
   oc.width=sw*up; oc.height=sh*up;
   const o=oc.getContext("2d");
   o.drawImage(video,sx,sy,sw,sh,0,0,oc.width,oc.height);
   threshold(o,oc.width,oc.height);
 
   try{
-    const { data } = await Tesseract.recognize(oc,"eng",{ tessedit_char_whitelist:"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", tessedit_pageseg_mode:"7" });
-    const raw=(data.text||"").trim();
-    const tokens=raw.split(/[^A-Za-z0-9]+/).filter(Boolean);
-    let best="";
-    for(const t of tokens){ const n=normalizeCode(t); const ok=CODE_PREFIXES.some(p=>n.startsWith(p)); const dg=(n.match(/[0-9]/g)||[]).length; if(ok&&dg>=1&&n.length>best.length) best=n; }
-    if(!best) best=normalizeCode(raw);
-    if(best && best.length>=2){ useCode(best,false); }
+    // psm 11 = "sparse text" — nájde text kdekoľvek na obrázku (vhodné pre celú nálepku)
+    const { data } = await Tesseract.recognize(oc,"eng",{ tessedit_char_whitelist:"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", tessedit_pageseg_mode:"11" });
+    const raw=(data.text||"");
+    const best = pickCode(raw);
+    if(best){ useCode(best,false); }
     else { setStatus("Kód sa nepodarilo prečítať — prefoť alebo zadaj ručne","warn"); toast("Nečitateľné — skús bližšie/lepšie svetlo"); }
   }catch(e){ toast("Chyba OCR: "+(e.message||e)); setStatus("OCR zlyhalo","err"); }
   finally{ $("scanShutter").classList.remove("busy"); }
 });
+
+/* Z celého OCR textu vyber len náš kód (predpona + čísla), ignoruj čiarové kódy.
+   Náš kód: H/HD/K/KD/P/PD/N/ND + 1–7 číslic. Dlhé EAN čísla (8+ číslic) zahodíme. */
+function pickCode(rawText){
+  if(!rawText) return "";
+  const tokens = rawText.toUpperCase().split(/[^A-Z0-9]+/).filter(Boolean);
+  const candidates = [];
+  for(const t of tokens){
+    const n = normalizeCode(t);
+    if(!n) continue;
+    const prefix = CODE_PREFIXES.find(p=>n.startsWith(p));
+    if(!prefix) continue;                       // nemá našu predponu → ignoruj
+    const digits = n.slice(prefix.length);
+    if(!/^[0-9]+$/.test(digits)) continue;      // za predponou musia byť len čísla
+    const dlen = digits.length;
+    if(dlen<1 || dlen>7) continue;              // náš kód má krátke číslo; dlhé EAN ignoruj
+    candidates.push({ code:n, prefixLen:prefix.length, digits:dlen });
+  }
+  if(!candidates.length) return "";
+  // preferuj kód s dlhšou písmenovou predponou (HD pred H) a rozumnou dĺžkou čísla
+  candidates.sort((a,b)=> (b.prefixLen-a.prefixLen) || (b.digits-a.digits));
+  return candidates[0].code;
+}
 
 /* dlhé podržanie spúšte = ručné zadanie */
 let pressTimer=null;
