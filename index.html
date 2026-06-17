@@ -172,7 +172,7 @@
     <div class="badge" id="badge">Pripravený</div>
     <div class="topbar-right">
       <div class="count" id="count" style="display:none">0</div>
-      <div class="ver">v0.5</div>
+      <div class="ver">v0.51</div>
       <div class="icon-btn" id="openSettings" aria-label="Nastavenia">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
       </div>
@@ -185,12 +185,13 @@
     <div class="fname-preview" id="fnamePreview">www-videohry-tv-…</div>
     <div class="seg-row">
       <div class="seg"><span>Značka</span>
-        <select id="brand">
-          <option value="sony-playstation">sony-playstation</option>
-          <option value="nintendo">nintendo</option>
-          <option value="microsoft-xbox">microsoft-xbox</option>
-        </select>
+        <select id="brand"></select>
       </div>
+      <div class="seg"><span>Označenie</span>
+        <select id="label"></select>
+      </div>
+    </div>
+    <div class="seg-row" style="margin-top:8px">
       <div class="seg"><span>Typ</span>
         <select id="type">
           <option value="konzoly">konzoly</option>
@@ -198,6 +199,7 @@
           <option value="prislusenstvo">prislusenstvo</option>
         </select>
       </div>
+    </div>
     </div>
   </div>
 
@@ -282,11 +284,20 @@
 
 <script>
 "use strict";
-const APP_VERSION = "v0.5";
+const APP_VERSION = "v0.51";
+
+/* ---------- Značky a ich označenia ---------- */
+const BRANDS = {
+  "sony-playstation": ["ps1","ps2","ps3","ps4","ps5","psp","ps-vita"],
+  "microsoft-xbox":   ["xbox-classic","xbox-360","xbox-one","xbox-series"],
+  "nintendo":         ["famicom","nes","snes","gameboy-dmg-gb","gameboy-color-gbc","gameboy-advance-gba","ds","3ds","n64","gamecube","wii","wii-u","switch"],
+  "sega":             ["master-system","mega-drive","saturn","dreamcast"],
+  "japan-import":     ["nintendo-famicom","nintendo-super-famicom"]
+};
 
 /* ---------- Nastavenia ---------- */
 const LS_KEY = "skener_v3";
-const defaults = { dbxToken:"", brand:"sony-playstation", type:"hry",
+const defaults = { dbxToken:"", brand:"sony-playstation", label:"ps1", type:"hry",
   wmImage:"", wmPos:"br", wmSize:22, wmOpacity:85, filter:"none", brightness:100, maxDim:1600, quality:80 };
 let S = (()=>{ try{ return Object.assign({},defaults,JSON.parse(localStorage.getItem(LS_KEY)||"{}")); }catch(e){ return {...defaults}; } })();
 function save(){ try{ localStorage.setItem(LS_KEY,JSON.stringify(S)); }catch(e){} }
@@ -301,8 +312,26 @@ const video=$("video"), canvas=$("canvas"), ctx=canvas.getContext("2d");
 
 function toast(m,ms=2000){ const t=$("toast"); t.textContent=m; t.classList.add("show"); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("show"),ms); }
 function setStatus(t,k){ $("statusText").textContent=t; $("dot").className="dot"+(k?" "+k:""); }
-function buildName(code){ return [FIXED,S.brand,S.type,code].join("-"); }
+function buildName(code){ return [FIXED,S.brand,S.label,S.type,code].join("-"); }
+function subFolder(){ return S.brand+" "+S.label+" "+S.type; }   // priečinok: "znacka oznacenie typ"
 function updateName(){ $("fnamePreview").textContent = buildName(currentCode||"<kód>"); }
+
+/* ---------- Naplnenie selectov značka/označenie ---------- */
+function fillBrands(){
+  const b=$("brand"); b.innerHTML="";
+  Object.keys(BRANDS).forEach(k=>{ const o=document.createElement("option"); o.value=k; o.textContent=k; b.appendChild(o); });
+  if(!BRANDS[S.brand]) S.brand=Object.keys(BRANDS)[0];
+  b.value=S.brand;
+  fillLabels();
+}
+function fillLabels(){
+  const l=$("label"); l.innerHTML="";
+  (BRANDS[S.brand]||[]).forEach(k=>{ const o=document.createElement("option"); o.value=k; o.textContent=k; l.appendChild(o); });
+  // ak aktuálne označenie nepatrí k značke, zober prvé
+  if(!(BRANDS[S.brand]||[]).includes(S.label)) S.label=(BRANDS[S.brand]||[""])[0];
+  l.value=S.label;
+}
+
 
 /* ---------- Vodiaci rám: pozícia podľa orientácie ---------- */
 function layoutGuide(){
@@ -491,7 +520,7 @@ async function takePhoto(){
   const blob=await new Promise(res=>canvas.toBlob(res,"image/jpeg",(S.quality||80)/100));
   if(!blob){ toast("Fotku sa nepodarilo vytvoriť"); return; }
   const idx=shots.length+1, name=buildName(currentCode)+"-"+idx+".jpg";
-  const shot={blob,name,uploaded:false}; shots.push(shot); updateCount();
+  const shot={blob,name,uploaded:false,folder:subFolder()}; shots.push(shot); updateCount();
   if(navigator.vibrate) navigator.vibrate(30);
   uploadShot(shot);
 }
@@ -525,7 +554,7 @@ async function uploadShot(shot){
     setStatus("Nahrávam "+shot.name+"…","busy");
     const res=await fetch("https://content.dropboxapi.com/2/files/upload",{ method:"POST",
       headers:{ "Authorization":"Bearer "+S.dbxToken, "Content-Type":"application/octet-stream",
-        "Dropbox-API-Arg":JSON.stringify({ path:"/"+todayFolder()+"/"+shot.name, mode:"add", autorename:true, mute:true }) },
+        "Dropbox-API-Arg":JSON.stringify({ path:"/"+todayFolder()+"/"+(shot.folder?shot.folder+"/":"")+shot.name, mode:"add", autorename:true, mute:true }) },
       body:shot.blob });
     if(res.ok){ shot.uploaded=true; setStatus("Nahraté: "+shot.name,"live"); }
     else{ setStatus("Chyba uploadu ("+res.status+")","err"); toast("Dropbox odmietol — skontroluj token"); }
@@ -543,7 +572,8 @@ function threshold(c,w,h){ const im=c.getImageData(0,0,w,h), d=im.data; let s=0;
 /* ---------- Nastavenia ---------- */
 $("openSettings").addEventListener("click",()=>$("settingsPanel").classList.add("open"));
 $("closeSettings").addEventListener("click",()=>$("settingsPanel").classList.remove("open"));
-$("brand").addEventListener("change",e=>{ S.brand=e.target.value; save(); updateName(); });
+$("brand").addEventListener("change",e=>{ S.brand=e.target.value; fillLabels(); save(); updateName(); });
+$("label").addEventListener("change",e=>{ S.label=e.target.value; save(); updateName(); });
 $("type").addEventListener("change",e=>{ S.type=e.target.value; save(); updateName(); });
 $("dbxToken").addEventListener("input",e=>{ S.dbxToken=e.target.value.trim(); save(); });
 $("testDbx").addEventListener("click",async()=>{
@@ -564,7 +594,7 @@ $("maxDim").addEventListener("change",e=>{ S.maxDim=parseInt(e.target.value,10);
 
 /* ---------- Init ---------- */
 function hydrate(){
-  $("brand").value=S.brand; $("type").value=S.type; $("dbxToken").value=S.dbxToken;
+  fillBrands(); $("type").value=S.type; $("dbxToken").value=S.dbxToken;
   $("wmPos").value=S.wmPos; $("wmSize").value=S.wmSize; $("wmSizeVal").textContent=S.wmSize+" %";
   $("wmOpacity").value=S.wmOpacity; $("wmOpacityVal").textContent=S.wmOpacity+" %";
   $("brightness").value=S.brightness; $("brightnessVal").textContent=S.brightness+" %";
