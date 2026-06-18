@@ -103,11 +103,15 @@
     font-size:34px;padding:16px 28px;border-radius:14px;letter-spacing:1px;}
   @keyframes flash{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
 
-  /* Výzva otoč na šírku — LEN NA VÝŠKU, malá lišta dole, neblokuje */
-  .rotate-tip{position:absolute;left:12px;right:12px;bottom:calc(var(--safe-bottom) + 16px);z-index:8;
-    background:rgba(20,25,32,.9);border:1px solid rgba(255,255,255,.12);border-radius:12px;
-    padding:12px 14px;font-size:13px;color:var(--text);display:flex;align-items:center;gap:10px;}
-  .rotate-tip svg{width:26px;height:26px;stroke:var(--accent);flex-shrink:0;}
+  /* Výzva otoč na šírku — na výšku prekryje celú plochu (kamera je vypnutá) */
+  .rotate-tip{position:fixed;inset:0;z-index:55;
+    background:var(--bg);flex-direction:column;align-items:center;justify-content:center;gap:18px;
+    padding:32px;text-align:center;display:none;}
+  .rotate-tip svg{width:72px;height:72px;stroke:var(--accent);animation:rotateIcon 2.4s ease-in-out infinite;}
+  .rotate-tip .rt-title{font-size:22px;font-weight:700;margin:0;}
+  .rotate-tip .rt-sub{font-size:14px;color:var(--muted);max-width:300px;line-height:1.5;margin:0;}
+  @keyframes rotateIcon{0%,40%{transform:rotate(0)}60%,100%{transform:rotate(90deg)}}
+  @media (prefers-reduced-motion:reduce){.rotate-tip svg{animation:none;transform:rotate(90deg);}}
 
   /* Nastavenia */
   .panel{position:fixed;inset:0;background:var(--bg);z-index:60;transform:translateX(100%);
@@ -147,15 +151,16 @@
   canvas{display:none;}
 
   /* ===== Orientácia: čo sa kde ukáže ===== */
-  /* Na VÝŠKU: ukáž menu + výzvu otoč. Na ŠÍRKU: skry ich. */
   @media (orientation:landscape){
     .portrait-panel{display:none;}
     .rotate-tip{display:none;}
   }
   @media (orientation:portrait){
     .portrait-panel{display:block;}
+    .rotate-tip{display:flex;}
   }
-  body.shooting .rotate-tip{display:none;}
+  /* keď sú otvorené nastavenia, výzvu skry (nastavenia fungujú aj na výšku) */
+  body.settings-open .rotate-tip{display:none !important;}
 </style>
 </head>
 <body>
@@ -172,7 +177,7 @@
     <div class="badge" id="badge">Pripravený</div>
     <div class="topbar-right">
       <div class="count" id="count" style="display:none">0</div>
-      <div class="ver">v0.53</div>
+      <div class="ver">v0.54</div>
       <div class="icon-btn" id="openSettings" aria-label="Nastavenia">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
       </div>
@@ -206,10 +211,11 @@
   <!-- stav -->
   <div class="status"><div class="dot" id="dot"></div><span id="statusText">Spúšťam kameru…</span></div>
 
-  <!-- výzva otoč na šírku (len na výšku) -->
+  <!-- výzva otoč na šírku (na výšku prekryje celú plochu, kamera je vypnutá) -->
   <div class="rotate-tip" id="rotateTip">
-    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M2 12h4M18 12h4"/></svg>
-    <span>Otoč telefón na šírku — fotky aj skenovanie sú na šírku.</span>
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="9" y1="18" x2="15" y2="18"/></svg>
+    <p class="rt-title">Otoč telefón na šírku</p>
+    <p class="rt-sub">Fotenie funguje len na šírku. Kamera sa zapne, keď otočíš telefón naležato.</p>
   </div>
 
   <!-- malá spúšť (fáza skenovania) -->
@@ -285,7 +291,7 @@
 
 <script>
 "use strict";
-const APP_VERSION = "v0.53";
+const APP_VERSION = "v0.54";
 
 /* ---------- Značky a ich označenia ---------- */
 const BRANDS = {
@@ -355,11 +361,15 @@ function layoutGuide(){
   g.style.width=(w*100)+"%"; g.style.height=(h*100)+"%";
   gl.style.top="calc("+((top)*100)+"% - 30px)";
 }
-window.addEventListener("resize", layoutGuide);
-window.addEventListener("orientationchange", ()=>setTimeout(layoutGuide,200));
+window.addEventListener("resize", ()=>{ layoutGuide(); handleOrientation(); });
+window.addEventListener("orientationchange", ()=>setTimeout(()=>{ layoutGuide(); handleOrientation(); },300));
 
 /* ---------- Kamera ---------- */
-async function startCamera(){
+function isLandscape(){ return window.innerWidth > window.innerHeight; }
+
+/* Zapne kameru (len na šírku). Volá sa pri štarte a pri otočení na šírku. */
+async function enableCamera(){
+  if(videoStream) return;            // už beží
   try{
     setStatus("Spúšťam kameru…","busy");
     videoStream = await navigator.mediaDevices.getUserMedia({
@@ -367,8 +377,29 @@ async function startCamera(){
     video.srcObject=videoStream; await video.play();
     layoutGuide();
     setStatus("Namier číslo do rámu a stlač spúšť","live");
-    startScanning();
+    if(phase==="scan") startScanning();
   }catch(e){ setStatus("Kamera nedostupná: "+(e.message||e.name),"err"); toast("Skontroluj povolenia kamery a HTTPS."); }
+}
+
+/* Vypne kameru (na výšku). Uvoľní stream, zastaví skenovanie. */
+function disableCamera(){
+  scanning=false; if(scanTimer){ clearTimeout(scanTimer); scanTimer=null; }
+  if(videoStream){ videoStream.getTracks().forEach(t=>t.stop()); videoStream=null; }
+  video.srcObject=null;
+  setStatus("Otoč telefón na šírku — kamera je vypnutá","warn");
+}
+
+/* Riadi kameru podľa orientácie. */
+function handleOrientation(){
+  if(isLandscape()){ enableCamera(); }
+  else { disableCamera(); }
+  layoutGuide();
+}
+
+async function startCamera(){
+  // spustí sa len ak je telefón na šírku; inak čaká na otočenie
+  if(isLandscape()) await enableCamera();
+  else disableCamera();
 }
 
 /* ---------- Skener čiarového kódu (beží na pozadí ako bonus) ---------- */
@@ -631,8 +662,8 @@ function threshold(c,w,h){ const im=c.getImageData(0,0,w,h), d=im.data; let s=0;
 }
 
 /* ---------- Nastavenia ---------- */
-$("openSettings").addEventListener("click",()=>$("settingsPanel").classList.add("open"));
-$("closeSettings").addEventListener("click",()=>$("settingsPanel").classList.remove("open"));
+$("openSettings").addEventListener("click",()=>{ $("settingsPanel").classList.add("open"); document.body.classList.add("settings-open"); });
+$("closeSettings").addEventListener("click",()=>{ $("settingsPanel").classList.remove("open"); document.body.classList.remove("settings-open"); });
 $("brand").addEventListener("change",e=>{ S.brand=e.target.value; fillLabels(); save(); updateName(); });
 $("label").addEventListener("change",e=>{ S.label=e.target.value; save(); updateName(); });
 $("type").addEventListener("change",e=>{ S.type=e.target.value; save(); updateName(); });
