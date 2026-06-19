@@ -103,13 +103,14 @@
     font-size:34px;padding:16px 28px;border-radius:14px;letter-spacing:1px;}
   @keyframes flash{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
 
-  /* Výzva otoč na šírku — na výšku prekryje celú plochu (kamera je vypnutá) */
-  .rotate-tip{position:fixed;inset:0;z-index:55;
-    background:var(--bg);flex-direction:column;align-items:center;justify-content:center;gap:18px;
-    padding:32px;text-align:center;display:none;}
-  .rotate-tip svg{width:72px;height:72px;stroke:var(--accent);animation:rotateIcon 2.4s ease-in-out infinite;}
-  .rotate-tip .rt-title{font-size:22px;font-weight:700;margin:0;}
-  .rotate-tip .rt-sub{font-size:14px;color:var(--muted);max-width:300px;line-height:1.5;margin:0;}
+  /* Výzva otoč na šírku — na výšku v dolnej časti, NEPREKRÝVA menu hore */
+  .rotate-tip{position:fixed;left:0;right:0;bottom:0;top:auto;z-index:8;
+    background:linear-gradient(to top,var(--bg) 60%,transparent);
+    flex-direction:column;align-items:center;justify-content:center;gap:14px;
+    padding:40px 32px calc(var(--safe-bottom) + 40px);text-align:center;display:none;}
+  .rotate-tip svg{width:60px;height:60px;stroke:var(--accent);animation:rotateIcon 2.4s ease-in-out infinite;}
+  .rotate-tip .rt-title{font-size:20px;font-weight:700;margin:0;}
+  .rotate-tip .rt-sub{font-size:13.5px;color:var(--muted);max-width:300px;line-height:1.5;margin:0;}
   @keyframes rotateIcon{0%,40%{transform:rotate(0)}60%,100%{transform:rotate(90deg)}}
   @media (prefers-reduced-motion:reduce){.rotate-tip svg{animation:none;transform:rotate(90deg);}}
 
@@ -177,7 +178,7 @@
     <div class="badge" id="badge">Pripravený</div>
     <div class="topbar-right">
       <div class="count" id="count" style="display:none">0</div>
-      <div class="ver">v0.54</div>
+      <div class="ver">v0.55</div>
       <div class="icon-btn" id="openSettings" aria-label="Nastavenia">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
       </div>
@@ -291,7 +292,7 @@
 
 <script>
 "use strict";
-const APP_VERSION = "v0.54";
+const APP_VERSION = "v0.55";
 
 /* ---------- Značky a ich označenia ---------- */
 const BRANDS = {
